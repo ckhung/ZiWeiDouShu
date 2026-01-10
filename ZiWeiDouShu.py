@@ -244,7 +244,7 @@ def create_chart(person):
 if __name__ == "__main__":
     if len(sys.argv) != 6:
         print("使用範例: 以農曆生辰為甲寅年5月7日申時為例, 請下", file=sys.stderr)
-        print("python fortune.py 1 3 5 7 9", file=sys.stderr)
+        print("python3 ZiWeiDouShu.py 1 3 5 7 9", file=sys.stderr)
         sys.exit(1)
 
     try:

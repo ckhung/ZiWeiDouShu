@@ -243,7 +243,7 @@ foreach (@ARGV) {
 if ($#ARGV != 4 or $bad) {
     print STDERR <<eof;
     使用範例: 以農曆生辰為甲寅年5月7日申時為例, 請下
-    perl fortune 1 3 5 7 9
+    perl ZiWeiDouShu.pl 1 3 5 7 9
 eof
     exit 1;
 }
