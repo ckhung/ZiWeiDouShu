@@ -3,7 +3,7 @@
 # "紫微精解" 天滴子著 希代出版
 # "紫微斗數新詮" 慧心齋主著 時報出版
 
-# use Data::Dumper;
+use Data::Dumper;
 
 $heaven = [ '癸', '甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬' ];
 $earth = [ '亥', '子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌' ];
@@ -87,13 +87,32 @@ sub list_chart {
     my ($chart) = @_;
     my ($person) = $chart->{person};
     printf("$heaven->[$person->{heaven}]$earth->[$person->{earth}]年%d月%d日%s時生 $chart->{element}局\n", $person->{month}, $person->{day}, $earth->[$person->{hour}]);
-    printf("命宮 $earth->[$chart->{fate}] / 身宮 $earth->[$chart->{body}]\n");
+    printf("命宮 $earth->[$chart->{fate}] / 身宮 $earth->[$chart->{body}]\n---\n");
     for ($i=0; $i<12; ++$i) {
 	$stars = "@{$chart->{$i}{star}}";
 	$stars =~ s/\d //g;
 	print("$house->[$chart->{$i}{house}] $earth->[$i]: $stars\n");
     }
 }
+
+sub find_element {
+    my ($fate, $heaven) = @_;
+    # 定五行局； 2026參考資料： https://www.ai5429.com/c/505.htm
+    # 輸入： 命宮支、生年干
+    my ($elem, $ofs) = ([4,2,6,5,3], [1,0,1,3,2,4]);
+    my ($t) = $ofs->[int(($fate + 1) / 2) % 6];
+    # 命宮支 戌亥=>1、 子丑=>0、 ... 那一欄等同於 「子丑欄向下位移」 幾格
+    $t = $elem->[ ($t+$heaven) % 5 ];
+    # 生年干 甲己=>1=>水二局
+    return $t
+}
+
+# for ($heaven=1; $heaven<=5; ++$heaven) {
+#     for ($fate=1; $fate<=12; ++$fate) {
+#         print(find_element($fate, $heaven), ' ');
+#     }
+#     print("\n");
+# }
 
 sub create_chart {
     my ($person) = @_;
@@ -113,13 +132,7 @@ sub create_chart {
     for ($e=0; $e<12; ++$e) {
 	$chart->{($chart->{fate}-$e+12)%12}{house} = $e;
     }
-    # 定五行局
-    # 再次驗證： https://www.ai5429.com/c/505.htm
-    my ($tab) = [
-	[4,3,5,6,2], [2,4,3,5,6], [5,6,2,4,3],
-	[6,2,4,3,5], [3,5,6,2,4], [2,4,3,5,6]
-    ];
-    my ($t) = $tab->[int(($chart->{fate}-1)/2)][4-($person->{heaven}+4)%5];
+    my ($t) = find_element($chart->{fate}, $person->{heaven});
     $chart->{element} = ('','','水二','木三','金四','土五','火六')[$t];
     # 四化表
     my ($m) = [
@@ -134,8 +147,13 @@ sub create_chart {
 	[ "巨門", "太陽", "文曲", "文昌" ],
 	[ "天梁", "紫微", "左輔", "武曲" ]
     ];
-    my (%morph);
-    @morph{ map { "1 $_" } @{ $m->[$person->{heaven}] } } = ('祿', '權', '科', '忌');
+    my ($morph_tags, %morph) = ['祿', '權', '科', '忌'];
+    for ($e=0; $e<4; ++$e) {
+	my ($st) = "1 " . $m->[$person->{heaven}][$e];
+	$morph{$st} = "$st化$morph_tags->[$e]";
+    }
+    # 為避免遺漏紫微、左輔、右弼， 晚一點再處理四化
+
     # 起紫微
     my ($ms); # main star
     $ms = (6 - $person->{day}) % $t;
@@ -159,8 +177,7 @@ sub create_chart {
 	'1 破軍' => { cw=>-1, ofs=> 4 },
     };
     foreach (keys %$main_star) {
-	$st = exists $morph{$_} ? "$_化$morph{$_}" : $_;
-	push @{ $chart->{($main_star->{$_}{cw}*$ms + $main_star->{$_}{ofs}+12) % 12}{star} }, $st;
+	push @{ $chart->{($main_star->{$_}{cw}*$ms + $main_star->{$_}{ofs}+12) % 12}{star} }, $_;
     }
     # 安干系諸星
     my ($heaven_star) = {
@@ -196,11 +213,19 @@ sub create_chart {
 	'3 封誥' => { cw=> 1, ofs=> 2 },
     };
     foreach (keys %$hour_star) {
-	$st = exists $morph{$_} ? "$_化$morph{$_}" : $_;
-	push @{ $chart->{($hour_star->{$_}{cw}*$person->{hour} + $hour_star->{$_}{ofs}+12)%12}{star} }, $st;
+	push @{ $chart->{($hour_star->{$_}{cw}*$person->{hour} + $hour_star->{$_}{ofs}+12)%12}{star} }, $_;
     }
     push @{ $chart->{ ($person->{hour}+(9,2,3,1)[$person->{earth} % 4]) % 12 }{star} }, '1 火星';
     push @{ $chart->{ ($person->{hour}+(10,10,10,3)[$person->{earth} % 4]) % 12 }{star} }, '1 鈴星';
+
+    # 四化
+    for ($i=0; $i<12; ++$i) {
+	$stars = $chart->{$i}{star};
+	if ($stars) {
+	    @$stars = map {exists $morph{$_} ? $morph{$_} : $_} @$stars;
+	}
+    }
+
     # 安支系諸星
     my ($earth_star) = {
 	'3 天空' => { cw=> 1, ofs=> 1 },
@@ -242,7 +267,7 @@ foreach (@ARGV) {
 }
 if ($#ARGV != 4 or $bad) {
     print STDERR <<eof;
-    使用範例: 以農曆生辰為甲寅年5月7日申時為例, 請下
+    使用範例： 以農曆生辰為甲寅年5月7日申時為例， 請下：
     perl ZiWeiDouShu.pl 1 3 5 7 9
 eof
     exit 1;

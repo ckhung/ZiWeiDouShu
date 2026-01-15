@@ -3,7 +3,7 @@
 # "紫微精解" 天滴子著 希代出版
 # "紫微斗數新詮" 慧心齋主著 時報出版
 
-import sys, re
+import sys, re, argparse
 
 heaven = [ '癸', '甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬' ]
 earth = [ '亥', '子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌' ]
@@ -37,31 +37,31 @@ def display_chart(chart):
     ]
 
     # 畫一張空白命盤
-    out = [["  " for _ in range(wd * 4 + 1)] for _ in range(ht * 4 + 1)]
+    out = [['  ' for _ in range(wd * 4 + 1)] for _ in range(ht * 4 + 1)]
     
     for i in range(5):
         # 橫線
         for j in range(wd * 4 + 1):
-            out[i * ht][j] = "--"
+            out[i * ht][j] = '--'
         # 縱線
         for row in range(ht * 4 + 1):
-            out[row][i * wd] = " |"
+            out[row][i * wd] = ' |'
 
     for i in range(5):
         for j in range(5):
-            out[i * ht][j * wd] = " +"
+            out[i * ht][j * wd] = ' +'
 
     # 打通中間空格
     for r in range(ht + 1, ht * 3):
         for c in range(wd + 1, wd * 3):
-            out[r][c] = "  "
+            out[r][c] = '  '
     for r in range(ht + 1, ht * 3):
-        out[r][2 * wd] = "  "
+        out[r][2 * wd] = '  '
 
     # 填入資料
-    birth_info = f"{heaven[person['heaven']]}{earth[person['earth']]}年{num2full(person['month'] if person['month'] > 0 else 12)}月{num2full(person['day'])}日{earth[person['hour']]}時生"
+    birth_info = f'{heaven[person['heaven']]}{earth[person['earth']]}年{num2full(person['month'] if person['month'] > 0 else 12)}月{num2full(person['day'])}日{earth[person['hour']]}時生'
     vert_print(out, ht + 3, int(wd * 3 - 1), birth_info)
-    vert_print(out, ht * 2 + 3, int(wd * 1.5), f"{chart['element']}局")
+    vert_print(out, ht * 2 + 3, int(wd * 1.5), f'{chart['element']}局')
 
     for e in range(12):
         r, c = pos[e][0] * ht, pos[e][1] * wd
@@ -78,18 +78,34 @@ def display_chart(chart):
                 vert_print(out, r + 1, c + wd - i - 1, s)
 
     for i in range(ht * 4 + 1):
-        print("".join(out[i]))
+        print(''.join(out[i]))
     print('')
 
 def list_chart(chart):
     person = chart['person']
-    print(f"{heaven[person['heaven']]}{earth[person['earth']]}年{person['month']}月{person['day']}日{earth[person['hour']]}時生 {chart['element']}局")
-    print(f"命宮 {earth[chart['fate']]} / 身宮 {earth[chart['body']]}")
+    print(f'{heaven[person['heaven']]}{earth[person['earth']]}年{person['month']}月{person['day']}日{earth[person['hour']]}時生 {chart['element']}局')
+    print(f'命宮 {earth[chart['fate']]} / 身宮 {earth[chart['body']]}\n---')
     for i in range(12):
-        stars = " ".join(chart[i].get('star', []))
+        stars = ' '.join(chart[i].get('star', []))
         import re
         stars = re.sub(r'\d ', '', stars)
-        print(f"{house[chart[i]['house']]} {earth[i]}: {stars}")
+        print(f'{house[chart[i]['house']]} {earth[i]}: {stars}')
+
+def find_element(fate, heaven):
+    # 定五行局； 2026參考資料： https://www.ai5429.com/c/505.htm
+    # 輸入： 命宮支、生年干
+    elem = [4,2,6,5,3]
+    ofs = [1,0,1,3,2,4]
+    t = ofs[int((fate + 1) / 2) % 6]
+    # 命宮支 戌亥=>1、 子丑=>0、 ... 那一欄等同於 「子丑欄向下位移」 幾格
+    t = elem[ (t+heaven) % 5 ]
+    # 生年干 甲己=>1=>水二局
+    return t
+
+# for heaven in range(5):
+#     for fate in range(12):
+#         print(find_element(fate+1, heaven+1), end=' ')
+#     print('')
 
 def create_chart(person):
     chart = {} # 命盤, 以地支為註標
@@ -111,32 +127,28 @@ def create_chart(person):
         chart[(chart['fate'] - e + 12) % 12]['house'] = e
 
     # 定五行局
-    # 再次驗證： https://www.ai5429.com/c/505.htm
-    tab = [
-        [4,3,5,6,2], [2,4,3,5,6], [5,6,2,4,3],
-        [6,2,4,3,5], [3,5,6,2,4], [2,4,3,5,6]
-    ]
-    t = tab[int((chart['fate'] - 1) / 2)][4 - (person['heaven'] + 4) % 5]
+    t = find_element(chart['fate'], person['heaven'])
     chart['element'] = ['', '', '水二', '木三', '金四', '土五', '火六'][t]
 
     # 四化表
     m = [
-        [ "破軍", "巨門", "太陰", "貪狼" ],
-        [ "廉貞", "破軍", "武曲", "太陽" ],
-        [ "天機", "天梁", "紫微", "太陰" ],
-        [ "天同", "天機", "文昌", "廉貞" ],
-        [ "太陰", "天同", "天機", "巨門" ],
-        [ "貪狼", "太陰", "右弼", "天機" ],
-        [ "武曲", "貪狼", "天梁", "文曲" ],
-        [ "太陽", "武曲", "天同", "太陰" ],
-        [ "巨門", "太陽", "文曲", "文昌" ],
-        [ "天梁", "紫微", "左輔", "武曲" ]
+        [ '破軍', '巨門', '太陰', '貪狼' ],
+        [ '廉貞', '破軍', '武曲', '太陽' ],
+        [ '天機', '天梁', '紫微', '太陰' ],
+        [ '天同', '天機', '文昌', '廉貞' ],
+        [ '太陰', '天同', '天機', '巨門' ],
+        [ '貪狼', '太陰', '右弼', '天機' ],
+        [ '武曲', '貪狼', '天梁', '文曲' ],
+        [ '太陽', '武曲', '天同', '太陰' ],
+        [ '巨門', '太陽', '文曲', '文昌' ],
+        [ '天梁', '紫微', '左輔', '武曲' ]
     ]
     
     morph = {}
     morph_tags = ['祿', '權', '科', '忌']
     for idx, star_name in enumerate(m[person['heaven']]):
-        morph[f"1 {star_name}"] = morph_tags[idx]
+        morph[f'1 {star_name}'] = f'1 {star_name}化' + morph_tags[idx]
+    # 為避免遺漏紫微、左輔、右弼， 晚一點再處理四化
 
     # 起紫微
     ms = (6 - person['day']) % t
@@ -162,8 +174,7 @@ def create_chart(person):
     }
 
     for key, val in main_star.items():
-        st = f"{key}化{morph[key]}" if key in morph else key
-        chart[(val['cw'] * ms + val['ofs'] + 12) % 12]['star'].append(st)
+        chart[(val['cw'] * ms + val['ofs'] + 12) % 12]['star'].append(key)
 
     # 安干系諸星
     heaven_star = {
@@ -200,11 +211,14 @@ def create_chart(person):
         '3 封誥': {'cw': 1, 'ofs': 2},
     }
     for key, val in hour_star.items():
-        st = f"{key}化{morph[key]}" if key in morph else key
-        chart[(val['cw'] * person['hour'] + val['ofs'] + 12) % 12]['star'].append(st)
+        chart[(val['cw'] * person['hour'] + val['ofs'] + 12) % 12]['star'].append(key)
 
     chart[(person['hour'] + [9, 2, 3, 1][person['earth'] % 4]) % 12]['star'].append('1 火星')
     chart[(person['hour'] + [10, 10, 10, 3][person['earth'] % 4]) % 12]['star'].append('1 鈴星')
+
+    # 四化
+    for i in range(12):
+        chart[i]['star'] = [ morph[st] if st in morph else st for st in chart[i]['star'] ]
 
     # 安支系諸星
     earth_star = {
@@ -240,27 +254,30 @@ def create_chart(person):
 
     return chart
 
-# 主程式邏輯
-if __name__ == "__main__":
-    if len(sys.argv) != 6:
-        print("使用範例: 以農曆生辰為甲寅年5月7日申時為例, 請下", file=sys.stderr)
-        print("python3 ZiWeiDouShu.py 1 3 5 7 9", file=sys.stderr)
-        sys.exit(1)
 
-    try:
-        args = [int(x) for x in sys.argv[1:]]
-    except ValueError:
-        print("錯誤: 參數必須為數字", file=sys.stderr)
-        sys.exit(1)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='紫微斗數排盤程式')
+    parser.add_argument('-o', '--output', type=str, default='chart,list',
+        help='輸出模式：若設為 list 則只印出條列內容')
+    parser.add_argument('params', type=int, nargs=5, 
+        help='使用範例： 以農曆生辰為甲寅年5月7日申時為例， 請下：\npython3 ZiWeiDouShu.py 1 3 5 7 9')
 
+    # 如果沒給參數，印出幫助訊息並退出
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+
+    # 處理生辰資料
     person = {
-        'heaven': args[0] % 10,
-        'earth': args[1] % 12,
-        'month': args[2] % 12,
-        'day': args[3],
-        'hour': args[4] % 12,
+        'heaven': args.params[0] % 10,
+        'earth':  args.params[1] % 12,
+        'month':  args.params[2] % 12,
+        'day':    args.params[3],
+        'hour':   args.params[4] % 12,
     }
 
     chart = create_chart(person)
-    display_chart(chart)
+    if 'chart' in args.output:
+        display_chart(chart)
     list_chart(chart)

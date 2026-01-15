@@ -1,0 +1,53 @@
+
+body {
+    text-align: center;
+    background: #fff;
+    font-size: 120%;
+}
+
+#ziweiCanvas {
+    border: 5px solid #ece;
+}
+
+.controls {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+select, button {
+    padding: 4px;
+    margin: 0 5px;
+}
+
+button {
+    font-size: 120%;
+    background: #ccf;
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+canvas {
+    background:
+    white; border: 2px solid #333;
+    max-width:
+    100%; height: auto;
+}
+
+#star_listing {
+    white-space: pre-wrap;      /* 保留換行與空格 */
+    text-align: left;           /* 文字靠左對齊 */
+    display: inline-block;      /* 根據內容調整寬度 */
+    margin-top: 20px;           /* 與上方畫布保持距離 */
+    padding: 15px;              /* 內邊距 */
+    border: 5px solid #ece;
+    border-radius: 4px;         /* 圓角 */
+    font-family: "Courier New", Courier, monospace; /* 等寬字體 */
+    width: 90%;                 /* 寬度適應螢幕 */
+    max-width: 760px;           /* 最大寬度與畫布相近 */
+}
