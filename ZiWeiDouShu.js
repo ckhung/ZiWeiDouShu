@@ -17,6 +17,28 @@ function init() {
 // 輔助函式：確保取模運算在負數時也能正確運作 (同 Perl 邏輯)
 const fixMod = (n, m) => ((n % m) + m) % m;
 
+function findElement(fate, heaven) {
+    // 定五行局； 2026參考資料： https://www.ai5429.com/c/505.htm
+    // 輸入： 命宮支、生年干
+    const elem = [4, 2, 6, 5, 3];
+    const ofs = [1, 0, 1, 3, 2, 4];
+    
+    let t = ofs[Math.floor((fate + 1) / 2) % 6];
+    // 命宮支 戌亥=>1、 子丑=>0、 ... 那一欄等同於 「子丑欄向下位移」 幾格
+    return elem[(t + heaven) % 5];
+    // 生年干 甲己=>1=>水二局
+}
+
+/*
+for (let heaven = 1; heaven <= 5; ++heaven) {
+    let row = "";
+    for (let fate = 1; fate <= 12; ++fate) {
+        row += findElement(fate, heaven) + " ";
+    }
+    console.log(row.trim());
+}
+*/
+
 function createChart(p) {
     let chart = { person: p };
     for (let i = 0; i < 12; i++) chart[i] = { star: [] };
@@ -29,8 +51,8 @@ function createChart(p) {
 
     for (let e = 0; e < 12; e++) chart[fixMod(chart.fate - e, 12)].house = e;
 
-    const tab = [[4,3,5,6,2], [2,4,3,5,6], [5,6,2,4,3], [6,2,4,3,5], [3,5,6,2,4], [2,4,3,5,6]];
-    const t = tab[Math.floor((chart.fate - 1) / 2)][4 - fixMod(p.heaven + 4, 5)];
+    // 定五行局
+    t = findElement(chart.fate, p.heaven);
     chart.element = ['', '', '水二', '木三', '金四', '土五', '火六'][t];
 
     const mTransform = [
@@ -41,7 +63,8 @@ function createChart(p) {
     ];
     let morph = {};
     const tags = ['祿', '權', '科', '忌'];
-    mTransform[p.heaven].forEach((s, i) => morph["1 " + s] = tags[i]);
+    mTransform[p.heaven].forEach((s, i) => morph['1 ' + s] = '1 ' + s + '化' + tags[i]);
+    // 為避免遺漏紫微、左輔、右弼， 晚一點再處理四化
 
     let ms = fixMod(6 - p.day, t);
     ms = [3, 2, 5, 0, 7, -2][ms];
@@ -55,8 +78,7 @@ function createChart(p) {
         '1 破軍': {cw:-1, ofs:4}
     };
     for (let s in mainStars) {
-        let name = morph[s] ? `${s}化${morph[s]}` : s;
-        chart[fixMod(mainStars[s].cw * ms + mainStars[s].ofs, 12)].star.push(name);
+        chart[fixMod(mainStars[s].cw * ms + mainStars[s].ofs, 12)].star.push(s);
     }
 
     // 安干系
@@ -83,13 +105,18 @@ function createChart(p) {
         '3 臺輔': {cw:1, ofs:6}, '3 封誥': {cw:1, ofs:2}
     };
     for (let s in hrStars) {
-        let name = morph[s] ? `${s}化${morph[s]}` : s;
-        chart[fixMod(hrStars[s].cw * p.hour + hrStars[s].ofs, 12)].star.push(name);
+        chart[fixMod(hrStars[s].cw * p.hour + hrStars[s].ofs, 12)].star.push(s);
     }
     chart[fixMod(p.hour + [9,2,3,1][p.earth % 4], 12)].star.push('1 火星');
     chart[fixMod(p.hour + [10,10,10,3][p.earth % 4], 12)].star.push('1 鈴星');
 
-    // 安支系
+    for (let i = 0; i < 12; i++) {
+	chart[i].star = chart[i].star.map(st => {
+	    return (st in morph) ? morph[st] : st;
+	});
+    }
+
+    // 安支系諸星
     const eStars = {
         '3 天空': {cw:1, ofs:1}, '3 天哭': {cw:-1, ofs:8}, '3 天虛': {cw:1, ofs:6}, '3 龍池': {cw:1, ofs:4},
         '3 鳳閣': {cw:-1, ofs:12}, '3 紅鸞': {cw:-1, ofs:5}, '3 天喜': {cw:-1, ofs:11}, '3 天德': {cw:1, ofs:9},

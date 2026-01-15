@@ -98,14 +98,29 @@ def find_element(fate, heaven):
     ofs = [1,0,1,3,2,4]
     t = ofs[int((fate + 1) / 2) % 6]
     # 命宮支 戌亥=>1、 子丑=>0、 ... 那一欄等同於 「子丑欄向下位移」 幾格
-    t = elem[ (t+heaven) % 5 ]
     # 生年干 甲己=>1=>水二局
-    return t
+    return elem[ (t+heaven) % 5 ]
 
 # for heaven in range(5):
 #     for fate in range(12):
 #         print(find_element(fate+1, heaven+1), end=' ')
 #     print('')
+
+def locate_ZiWei(element, day):
+    # 起紫微， 2026 重寫， 根據：
+    # https://www.108s.tw/article/info/91
+    # http://www.managementofknowledges.com/%E3%80%8A%E5%AE%89%E7%B4%AB%E5%BE%AE%E6%98%9F%E3%80%8B/
+    # https://www.ai5429.com/c/506.htm
+    ZiWei_house = [
+        [],
+        [],
+        [-1, 2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,0,0,1,1,2,2,3,3,4,4,5],    # 水二局
+        [-1, 5,2,3,6,3,4,7,4,5,8,5,6,9,6,7,10,7,8,11,8,9,0,9,10,1,10,11,2,11,0],  # 木三局
+        [-1, 0,5,2,3,1,6,3,4,2,7,4,5,3,8,5,6,4,9,6,7,5,10,7,8,6,11,8,9,7,0],      # 金四局
+        [-1, 7,0,5,2,3,8,1,6,3,4,9,2,7,4,5,10,3,8,5,6,11,4,9,6,7,0,5,10,7,8],     # 土五局
+        [-1, 10,7,0,5,2,3,11,8,1,6,3,4,0,9,2,7,4,5,1,10,3,8,5,6,2,11,4,9,6,7],    # 火六局
+    ]
+    return ZiWei_house[element][day]
 
 def create_chart(person):
     chart = {} # 命盤, 以地支為註標
@@ -127,33 +142,10 @@ def create_chart(person):
         chart[(chart['fate'] - e + 12) % 12]['house'] = e
 
     # 定五行局
-    t = find_element(chart['fate'], person['heaven'])
-    chart['element'] = ['', '', '水二', '木三', '金四', '土五', '火六'][t]
+    elem = find_element(chart['fate'], person['heaven'])
+    chart['element'] = ['', '', '水二', '木三', '金四', '土五', '火六'][elem]
 
-    # 四化表
-    m = [
-        [ '破軍', '巨門', '太陰', '貪狼' ],
-        [ '廉貞', '破軍', '武曲', '太陽' ],
-        [ '天機', '天梁', '紫微', '太陰' ],
-        [ '天同', '天機', '文昌', '廉貞' ],
-        [ '太陰', '天同', '天機', '巨門' ],
-        [ '貪狼', '太陰', '右弼', '天機' ],
-        [ '武曲', '貪狼', '天梁', '文曲' ],
-        [ '太陽', '武曲', '天同', '太陰' ],
-        [ '巨門', '太陽', '文曲', '文昌' ],
-        [ '天梁', '紫微', '左輔', '武曲' ]
-    ]
-    
-    morph = {}
-    morph_tags = ['祿', '權', '科', '忌']
-    for idx, star_name in enumerate(m[person['heaven']]):
-        morph[f'1 {star_name}'] = f'1 {star_name}化' + morph_tags[idx]
-    # 為避免遺漏紫微、左輔、右弼， 晚一點再處理四化
-
-    # 起紫微
-    ms = (6 - person['day']) % t
-    ms = [3, 2, 5, 0, 7, -2][ms]
-    ms = int((person['day'] - 1) / t + ms + 12) % 12
+    ms = locate_ZiWei(elem, person['day'])
     chart[ms]['star'].append('1 紫微')
 
     # 安甲級十四顆正星
@@ -216,7 +208,23 @@ def create_chart(person):
     chart[(person['hour'] + [9, 2, 3, 1][person['earth'] % 4]) % 12]['star'].append('1 火星')
     chart[(person['hour'] + [10, 10, 10, 3][person['earth'] % 4]) % 12]['star'].append('1 鈴星')
 
-    # 四化
+    # 為避免遺漏紫微、左輔、右弼， 現在才處理四化
+    m = [
+        [ '破軍', '巨門', '太陰', '貪狼' ],
+        [ '廉貞', '破軍', '武曲', '太陽' ],
+        [ '天機', '天梁', '紫微', '太陰' ],
+        [ '天同', '天機', '文昌', '廉貞' ],
+        [ '太陰', '天同', '天機', '巨門' ],
+        [ '貪狼', '太陰', '右弼', '天機' ],
+        [ '武曲', '貪狼', '天梁', '文曲' ],
+        [ '太陽', '武曲', '天同', '太陰' ],
+        [ '巨門', '太陽', '文曲', '文昌' ],
+        [ '天梁', '紫微', '左輔', '武曲' ]
+    ]
+    morph = {}
+    morph_tags = ['祿', '權', '科', '忌']
+    for idx, star_name in enumerate(m[person['heaven']]):
+        morph[f'1 {star_name}'] = f'1 {star_name}化' + morph_tags[idx]
     for i in range(12):
         chart[i]['star'] = [ morph[st] if st in morph else st for st in chart[i]['star'] ]
 
@@ -281,3 +289,8 @@ if __name__ == '__main__':
     if 'chart' in args.output:
         display_chart(chart)
     list_chart(chart)
+
+# 測試資料：
+# 1946 3 11 5 15 6 Donald Trump
+# 1971 8 0 5 6 5 Elon Musk
+# 1953 0 6 5 5 7? 習近平

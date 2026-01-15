@@ -8,9 +8,9 @@ parser.add_argument('-l', '--lang', type=str, default='js', help='跟哪個語�
 args = parser.parse_args()
 
 if args.lang == 'js':
-    print('比對 python 版 vs javascript 版...')
+    print(f'用亂數產生 {args.n} 筆生辰， 比對 python 版 vs javascript 版...')
 elif args.lang == 'pl':
-    print('比對 python 版 vs perl 版...')
+    print(f'用亂數產生 {args.n} 筆生辰， 比對 python 版 vs perl 版...')
 else:
     parser.print_help(sys.stderr)
     sys.exit(1)
