@@ -3,10 +3,7 @@
 
 import sys
 
-earth = '亥子丑寅卯辰巳午未申酉戌'
+earth = { x:str(i) for (i,x) in enumerate('亥子丑寅卯辰巳午未申酉戌') }
 for line in sys.stdin:
-    out = []
-    for x in line.rstrip().split(','):
-        n = earth.find(x)
-        out.append(str(n) if n>=0 else x)
+    out = [earth.get(x, x) for x in line.rstrip().split(',')]
     print(','.join(out))
