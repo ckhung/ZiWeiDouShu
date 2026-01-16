@@ -1,213 +1,260 @@
+#!/usr/bin/env node
+
 const heavenNames = ['癸', '甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬'];
 const earthNames = ['亥', '子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌'];
 const houseNames = ['命宮', '兄弟', '夫妻', '子女', '財帛', '疾厄', '遷移', '僕役', '官祿', '田宅', '福德', '父母'];
 
-function init() {
-    const fill = (id, list, suffix="") => {
-        const s = document.getElementById(id);
-        list.forEach((v, i) => s.add(new Option(v + suffix, i)));
-    };
-    fill('heaven', heavenNames);
-    fill('earth', earthNames);
-    fill('hour', earthNames, "時");
-    for(let i=1; i<=12; i++) document.getElementById('month').add(new Option(i + "月", i));
-    for(let i=1; i<=30; i++) document.getElementById('day').add(new Option(i + "日", i));
-}
-
-// 輔助函式：確保取模運算在負數時也能正確運作 (同 Perl 邏輯)
+// 輔助函式：確保取模運算在負數時也能正確運作
 const fixMod = (n, m) => ((n % m) + m) % m;
 
+function drawCanvasChart(chart) {
+    const canvas = document.getElementById('ziweiCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cw = canvas.width / 4;
+    const ch = canvas.height / 4;
+    const pos = [
+        [3, 3], [3, 2], [3, 1], [3, 0], [2, 0], [1, 0],
+        [0, 0], [0, 1], [0, 2], [0, 3], [1, 3], [2, 3]
+    ];
+
+    const baseSize = 20;
+
+    // 清除畫布並設定基本樣式
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#333";
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#000";
+
+    ctx.beginPath();
+    for (let i = 0; i <= 4; i++) {
+        if (i === 2) {
+            ctx.moveTo(0, i * ch); ctx.lineTo(cw, i * ch);
+            ctx.moveTo(3 * cw, i * ch); ctx.lineTo(4 * cw, i * ch);
+        } else {
+            ctx.moveTo(0, i * ch); ctx.lineTo(canvas.width, i * ch);
+        }
+        if (i === 2) {
+            ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, ch);
+            ctx.moveTo(i * cw, 3 * ch); ctx.lineTo(i * cw, 4 * ch);
+        } else {
+            ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, canvas.height);
+        }
+    }
+    ctx.stroke();
+
+
+    // 填入中央出生資訊
+    const p = chart.person;
+    const info = `${heavenNames[p.heaven]}${earthNames[p.earth]}年${p.month}月${p.day}日${earthNames[p.hour]}時生`;
+    ctx.save();
+    ctx.fillStyle = "#000";
+    drawVertText(ctx, info, cw * 3 - 50, ch + 40, baseSize * 1.2);
+    drawVertText(ctx, `${chart.element}局`, cw * 1.5, ch * 2 + 40, baseSize * 1.5);
+    ctx.restore();
+
+    // 填入十二宮位資訊
+    pos.forEach((coord, e) => {
+        const x = coord[1] * cw;
+        const y = coord[0] * ch;
+
+        // 宮位天干地支與名稱
+        ctx.fillStyle = "#888";
+        drawVertText(ctx, heavenNames[chart[e].heaven] + earthNames[e], x + cw - 30, y + 20, baseSize * 0.8);
+        ctx.fillStyle = "#000";
+        drawVertText(ctx, houseNames[chart[e].house], x + cw - 55, y + 20, baseSize);
+        if (chart.body === e) {
+            ctx.fillStyle = "#d9534f";
+            drawVertText(ctx, "身宮", x + cw - 80, y + 20, baseSize);
+        }
+
+        // 繪製星曜
+        if (chart[e].star) {
+            let iMajor = 0, iMinor = 0;
+            chart[e].star.forEach(st => {
+                const [level, name] = st.split(' ');
+                if (level === '1') {
+                    iMajor++;
+                    ctx.fillStyle = "#0000FF"; // 主星藍色
+                    drawVertText(ctx, name, x + iMajor * baseSize * 1.2, y + 20, baseSize);
+                } else {
+                    iMinor++;
+                    ctx.fillStyle = (level === '2') ? "#CC0000" : "#000";
+                    drawVertText(ctx, name, x + iMinor * baseSize * 1.1, y + ch - 80, baseSize * 0.9);
+                }
+            });
+        }
+    });
+}
+
+
+function drawVertText(ctx, text, x, y, size) {
+    ctx.font = `bold ${size}px 楷書`;
+    for (let i = 0; i < text.length; i++) {
+        ctx.fillText(text[i], x, y + (i * (size + 4)));
+    }
+}
+
+function initControls() {
+    const hSel = document.getElementById('heaven');
+    const eSel = document.getElementById('earth');
+    const mSel = document.getElementById('month');
+    const dSel = document.getElementById('day');
+    const hrSel = document.getElementById('hour');
+
+    heavenNames.forEach((n, i) => hSel.add(new Option(n, i)));
+    earthNames.forEach((n, i) => eSel.add(new Option(n, i)));
+    earthNames.forEach((n, i) => hrSel.add(new Option(n + '時', i)));
+    for (let i = 1; i <= 12; i++) mSel.add(new Option(i + '月', i));
+    for (let i = 1; i <= 30; i++) dSel.add(new Option(i + '日', i));
+}
+
+
 function findElement(fate, heaven) {
-    // 定五行局； 2026參考資料： https://www.ai5429.com/c/505.htm
-    // 輸入： 命宮支、生年干
     const elem = [4, 2, 6, 5, 3];
     const ofs = [1, 0, 1, 3, 2, 4];
-    
     let t = ofs[Math.floor((fate + 1) / 2) % 6];
-    // 命宮支 戌亥=>1、 子丑=>0、 ... 那一欄等同於 「子丑欄向下位移」 幾格
     return elem[(t + heaven) % 5];
-    // 生年干 甲己=>1=>水二局
 }
 
-/*
-for (let heaven = 1; heaven <= 5; ++heaven) {
-    let row = "";
-    for (let fate = 1; fate <= 12; ++fate) {
-        row += findElement(fate, heaven) + " ";
-    }
-    console.log(row.trim());
+function locateZiWei(element, day) {
+    const ziWeiHouse = [
+        [], [], // 0, 1 不用
+        [-1, 2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,0,0,1,1,2,2,3,3,4,4,5],    // 水二
+        [-1, 5,2,3,6,3,4,7,4,5,8,5,6,9,6,7,10,7,8,11,8,9,0,9,10,1,10,11,2,11,0],  // 木三
+        [-1, 0,5,2,3,1,6,3,4,2,7,4,5,3,8,5,6,4,9,6,7,5,10,7,8,6,11,8,9,7,0],      // 金四
+        [-1, 7,0,5,2,3,8,1,6,3,4,9,2,7,4,5,10,3,8,5,6,11,4,9,6,7,0,5,10,7,8],     // 土五
+        [-1, 10,7,0,5,2,3,11,8,1,6,3,4,0,9,2,7,4,5,1,10,3,8,5,6,2,11,4,9,6,7],    // 火六
+    ];
+    return ziWeiHouse[element][day];
 }
-*/
 
-function createChart(p) {
-    let chart = { person: p };
+function createChart(person) {
+    let chart = { person: person };
     for (let i = 0; i < 12; i++) chart[i] = { star: [] };
 
-    let head = fixMod((p.heaven % 5) * 2 + 1, 10);
-    for (let e = 0; e < 12; e++) chart[fixMod(e + 3, 12)].heaven = fixMod(e + head, 10);
+    // 起寅首
+    let head = fixMod((person.heaven % 5) * 2 + 1, 10);
+    for (let e = 0; e < 12; e++) {
+        chart[fixMod(e + 3, 12)].heaven = fixMod(e + head, 10);
+    }
 
-    chart.body = fixMod(p.month + p.hour + 1, 12);
-    chart.fate = fixMod(p.month - p.hour + 15, 12);
+    // 起命身宮
+    chart.body = fixMod(person.month + person.hour + 1, 12);
+    chart.fate = fixMod(person.month - person.hour + 15, 12);
 
-    for (let e = 0; e < 12; e++) chart[fixMod(chart.fate - e, 12)].house = e;
+    // 排列十二宮位
+    for (let e = 0; e < 12; e++) {
+        chart[fixMod(chart.fate - e, 12)].house = e;
+    }
 
     // 定五行局
-    t = findElement(chart.fate, p.heaven);
-    chart.element = ['', '', '水二', '木三', '金四', '土五', '火六'][t];
+    let elem = findElement(chart.fate, person.heaven);
+    chart.element = ['', '', '水二', '木三', '金四', '土五', '火六'][elem];
 
-    const mTransform = [
-        ["破軍", "巨門", "太陰", "貪狼"], ["廉貞", "破軍", "武曲", "太陽"], ["天機", "天梁", "紫微", "太陰"],
-        ["天同", "天機", "文昌", "廉貞"], ["太陰", "天同", "天機", "巨門"], ["貪狼", "太陰", "右弼", "天機"],
-        ["武曲", "貪狼", "天梁", "文曲"], ["太陽", "武曲", "天同", "太陰"], ["巨門", "太陽", "文曲", "文昌"],
-        ["天梁", "紫微", "左輔", "武曲"]
+    // 起紫微
+    let ms = locateZiWei(elem, person.day);
+    chart[ms].star.push('1 紫微');
+
+    // 安甲級十四顆正星
+    const mainStar = {
+        '1 天機': { cw: 1, ofs: -1 }, '1 太陽': { cw: 1, ofs: -3 }, '1 武曲': { cw: 1, ofs: -4 },
+        '1 天同': { cw: 1, ofs: -5 }, '1 廉貞': { cw: 1, ofs: 4 }, '1 天府': { cw: -1, ofs: 6 },
+        '1 太陰': { cw: -1, ofs: 7 }, '1 貪狼': { cw: -1, ofs: 8 }, '1 巨門': { cw: -1, ofs: 9 },
+        '1 天相': { cw: -1, ofs: 10 }, '1 天梁': { cw: -1, ofs: 11 }, '1 七殺': { cw: -1, ofs: 12 },
+        '1 破軍': { cw: -1, ofs: 4 },
+    };
+    for (let [key, val] of Object.entries(mainStar)) {
+        chart[fixMod(val.cw * ms + val.ofs, 12)].star.push(key);
+    }
+
+    // 安干系諸星
+    const heavenStar = {
+        '1 祿存': [1, 3, 4, 6, 7, 6, 7, 9, 10, 0], '1 擎羊': [2, 4, 5, 7, 8, 7, 8, 10, 11, 1],
+        '1 陀羅': [0, 2, 3, 5, 6, 5, 6, 8, 9, 11], '1 天魁': [4, 2, 1, 0, 0, 2, 1, 2, 7, 4],
+        '1 天越': [6, 8, 9, 10, 10, 8, 9, 8, 3, 6], '4 天官': [7, 8, 5, 6, 3, 4, 10, 0, 10, 11],
+        '4 天福': [6, 10, 9, 1, 0, 4, 3, 7, 6, 7], '3 天廚': [0, 6, 7, 1, 6, 7, 9, 3, 7, 10],
+    };
+    for (let [key, val] of Object.entries(heavenStar)) {
+        chart[val[person.heaven]].star.push(key);
+    }
+
+    // 安月系諸星
+    chart[fixMod(person.month + 4, 12)].star.push('1 左輔');
+    chart[fixMod(12 - person.month, 12)].star.push('1 右弼');
+    chart[fixMod(person.month + 9, 12)].star.push('2 天刑');
+    chart[fixMod(person.month + 1, 12)].star.push('2 天姚');
+
+    chart[[7, 9, 11, 1, 3, 5, 7][Math.floor((person.month + 1) / 2)]].star.push('3 解神');
+    chart[[3, 6, 9, 0][person.month % 4]].star.push('3 天巫');
+    chart[[3, 11, 6, 5, 3, 8, 4, 0, 8, 3, 7, 11][person.month]].star.push('3 天月');
+    chart[[3, 1, 11, 9, 7, 5][person.month % 6]].star.push('3 陰煞');
+
+    // 安時系諸星
+    const hourStar = {
+        '1 文昌': { cw: -1, ofs: 0 }, '1 文曲': { cw: 1, ofs: 4 }, '1 地劫': { cw: 1, ofs: -1 },
+        '1 空劫': { cw: -1, ofs: 1 }, '3 臺輔': { cw: 1, ofs: 6 }, '3 封誥': { cw: 1, ofs: 2 },
+    };
+    for (let [key, val] of Object.entries(hourStar)) {
+        chart[fixMod(val.cw * person.hour + val.ofs, 12)].star.push(key);
+    }
+    chart[fixMod(person.hour + [9, 2, 3, 1][person.earth % 4], 12)].star.push('1 火星');
+    chart[fixMod(person.hour + [10, 10, 10, 3][person.earth % 4], 12)].star.push('1 鈴星');
+
+    // 統一處理四化 (對應 Python 邏輯：安置完月/時系星後才處理)
+    const m = [
+        ['破軍', '巨門', '太陰', '貪狼'], ['廉貞', '破軍', '武曲', '太陽'], ['天機', '天梁', '紫微', '太陰'],
+        ['天同', '天機', '文昌', '廉貞'], ['太陰', '天同', '天機', '巨門'], ['貪狼', '太陰', '右弼', '天機'],
+        ['武曲', '貪狼', '天梁', '文曲'], ['太陽', '武曲', '天同', '太陰'], ['巨門', '太陽', '文曲', '文昌'],
+        ['天梁', '紫微', '左輔', '武曲']
     ];
     let morph = {};
     const tags = ['祿', '權', '科', '忌'];
-    mTransform[p.heaven].forEach((s, i) => morph['1 ' + s] = '1 ' + s + '化' + tags[i]);
-    // 為避免遺漏紫微、左輔、右弼， 晚一點再處理四化
-
-    let ms = fixMod(6 - p.day, t);
-    ms = [3, 2, 5, 0, 7, -2][ms];
-    ms = fixMod(Math.floor((p.day - 1) / t) + ms, 12);
-    chart[ms].star.push('1 紫微');
-
-    const mainStars = {
-        '1 天機': {cw:1, ofs:-1}, '1 太陽': {cw:1, ofs:-3}, '1 武曲': {cw:1, ofs:-4}, '1 天同': {cw:1, ofs:-5},
-        '1 廉貞': {cw:1, ofs:4}, '1 天府': {cw:-1, ofs:6}, '1 太陰': {cw:-1, ofs:7}, '1 貪狼': {cw:-1, ofs:8},
-        '1 巨門': {cw:-1, ofs:9}, '1 天相': {cw:-1, ofs:10}, '1 天梁': {cw:-1, ofs:11}, '1 七殺': {cw:-1, ofs:12},
-        '1 破軍': {cw:-1, ofs:4}
-    };
-    for (let s in mainStars) {
-        chart[fixMod(mainStars[s].cw * ms + mainStars[s].ofs, 12)].star.push(s);
-    }
-
-    // 安干系
-    const hStars = {
-        '1 祿存': [1,3,4,6,7,6,7,9,10,0], '1 擎羊': [2,4,5,7,8,7,8,10,11,1], '1 陀羅': [0,2,3,5,6,5,6,8,9,11],
-        '1 天魁': [4,2,1,0,0,2,1,2,7,4], '1 天越': [6,8,9,10,10,8,9,8,3,6], '4 天官': [7,8,5,6,3,4,10,0,10,11],
-        '4 天福': [6,10,9,1,0,4,3,7,6,7], '3 天廚': [0,6,7,1,6,7,9,3,7,10]
-    };
-    for (let s in hStars) chart[hStars[s][p.heaven]].star.push(s);
-
-    // 安月系
-    chart[fixMod(p.month + 4, 12)].star.push('1 左輔');
-    chart[fixMod(12 - p.month, 12)].star.push('1 右弼');
-    chart[fixMod(p.month + 9, 12)].star.push('2 天刑');
-    chart[fixMod(p.month + 1, 12)].star.push('2 天姚');
-    chart[[7,9,11,1,3,5,7][Math.floor((p.month+1)/2)]].star.push('3 解神');
-    chart[[3,6,9,0][p.month % 4]].star.push('3 天巫');
-    chart[[3,11,6,5,3,8,4,0,8,3,7,11][p.month]].star.push('3 天月');
-    chart[[3,1,11,9,7,5][p.month % 6]].star.push('3 陰煞');
-
-    // 安時系
-    const hrStars = {
-        '1 文昌': {cw:-1, ofs:0}, '1 文曲': {cw:1, ofs:4}, '1 地劫': {cw:1, ofs:-1}, '1 空劫': {cw:-1, ofs:1},
-        '3 臺輔': {cw:1, ofs:6}, '3 封誥': {cw:1, ofs:2}
-    };
-    for (let s in hrStars) {
-        chart[fixMod(hrStars[s].cw * p.hour + hrStars[s].ofs, 12)].star.push(s);
-    }
-    chart[fixMod(p.hour + [9,2,3,1][p.earth % 4], 12)].star.push('1 火星');
-    chart[fixMod(p.hour + [10,10,10,3][p.earth % 4], 12)].star.push('1 鈴星');
-
+    m[person.heaven].forEach((name, idx) => {
+        morph[`1 ${name}`] = `1 ${name}化${tags[idx]}`;
+    });
     for (let i = 0; i < 12; i++) {
-	chart[i].star = chart[i].star.map(st => {
-	    return (st in morph) ? morph[st] : st;
-	});
+        chart[i].star = chart[i].star.map(st => morph[st] || st);
     }
 
     // 安支系諸星
-    const eStars = {
-        '3 天空': {cw:1, ofs:1}, '3 天哭': {cw:-1, ofs:8}, '3 天虛': {cw:1, ofs:6}, '3 龍池': {cw:1, ofs:4},
-        '3 鳳閣': {cw:-1, ofs:12}, '3 紅鸞': {cw:-1, ofs:5}, '3 天喜': {cw:-1, ofs:11}, '3 天德': {cw:1, ofs:9},
-        '3 月德': {cw:1, ofs:5}
+    const earthStar = {
+        '3 天空': { cw: 1, ofs: 1 }, '3 天哭': { cw: -1, ofs: 8 }, '3 天虛': { cw: 1, ofs: 6 },
+        '3 龍池': { cw: 1, ofs: 4 }, '3 鳳閣': { cw: -1, ofs: 12 }, '3 紅鸞': { cw: -1, ofs: 5 },
+        '3 天喜': { cw: -1, ofs: 11 }, '3 天德': { cw: 1, ofs: 9 }, '3 月德': { cw: 1, ofs: 5 },
     };
-    for (let s in eStars) chart[fixMod(eStars[s].cw * p.earth + eStars[s].ofs, 12)].star.push(s);
-    chart[fixMod(18 - (p.earth % 4) * 3, 12)].star.push('1 天馬');
-    chart[fixMod(Math.floor(p.earth/3)*3 + 3, 12)].star.push('3 孤辰');
-    chart[fixMod(Math.floor(p.earth/3)*3 + 11, 12)].star.push('3 寡宿');
-    chart[[2,9,10,11,6,7,8,3,4,5,0,1][p.earth]].star.push('3 蜚廉');
-    chart[fixMod(22 - (p.earth % 3) * 4, 12)].star.push('3 破碎');
-    chart[fixMod(20 - (p.earth % 4) * 3, 12)].star.push('3 華蓋');
-    chart[fixMod(13 - (p.earth % 4) * 3, 12)].star.push('3 咸池');
-    chart[fixMod(chart.fate + p.earth + 11, 12)].star.push('3 天才');
-    chart[fixMod(chart.body + p.earth + 11, 12)].star.push('3 天壽');
-    chart[fixMod(p.earth + 9, 12)].star.push('4 年解');
+    for (let [key, val] of Object.entries(earthStar)) {
+        chart[fixMod(val.cw * person.earth + val.ofs, 12)].star.push(key);
+    }
+    chart[fixMod(18 - (person.earth % 4) * 3, 12)].star.push('1 天馬');
+    chart[fixMod(Math.floor(person.earth / 3) * 3 + 3, 12)].star.push('3 孤辰');
+    chart[fixMod(Math.floor(person.earth / 3) * 3 + 11, 12)].star.push('3 寡宿');
+    chart[[2, 9, 10, 11, 6, 7, 8, 3, 4, 5, 0, 1][person.earth]].star.push('3 蜚廉');
+    chart[fixMod(22 - (person.earth % 3) * 4, 12)].star.push('3 破碎');
+    chart[fixMod(20 - (person.earth % 4) * 3, 12)].star.push('3 華蓋');
+    chart[fixMod(13 - (person.earth % 4) * 3, 12)].star.push('3 咸池');
+    chart[fixMod(chart.fate + person.earth + 11, 12)].star.push('3 天才');
+    chart[fixMod(chart.body + person.earth + 11, 12)].star.push('3 天壽');
+    chart[fixMod(person.earth + 9, 12)].star.push('4 年解');
 
     for (let i = 0; i < 12; i++) chart[i].star.sort();
     return chart;
 }
 
-function drawVerticalText(ctx, text, x, y, fontSize) {
-    ctx.font = fontSize + "px 'Microsoft JhengHei'";
-    for (let i = 0; i < text.length; i++) {
-        ctx.fillText(text[i], x, y + i * (fontSize + 2));
-    }
-}
-
-function renderChart(chart) {
-    const canvas = document.getElementById('ziweiCanvas');
-    const ctx = canvas.getContext('2d');
-    const cw = 200, ch = 200;
-    const posMap = [[3,3],[3,2],[3,1],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2],[0,3],[1,3],[2,3]];
-
-    ctx.clearRect(0, 0, 800, 800);
-    ctx.strokeStyle = "#333";
-
-    // 畫網格
-    for(let r=0; r<4; r++) {
-        for(let c=0; c<4; c++) {
-            if (r > 0 && r < 3 && c > 0 && c < 3) continue;
-            ctx.strokeRect(c * cw, r * ch, cw, ch);
-        }
-    }
-
-    posMap.forEach((p, e) => {
-        let x = p[1] * cw, y = p[0] * ch;
-
-        // 宮位天干地支
-        ctx.fillStyle = "#888";
-        ctx.font = "16px Arial";
-        ctx.fillText(heavenNames[chart[e].heaven] + earthNames[e], x + cw - 45, y + ch - 15);
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 16px Arial";
-        ctx.fillText(houseNames[chart[e].house], x + cw/2 - 15, y + ch - 15);
-        if (chart.body === e) {
-            ctx.fillStyle = "#d9534f";
-            ctx.fillText("(身)", x + cw/2 - 45, y + ch - 15);
-        }
-
-        // 星曜繪製 (向下調整約半個字高度：y + 25)
-        chart[e].star.forEach((s, i) => {
-            let cleanName = s.replace(/^[0-9\s]*/, "");
-            // 主星 (Level 1) 用藍色，其餘分類
-            if (s.startsWith('1')) ctx.fillStyle = "#0000FF"; // 藍色
-            else if (s.startsWith('2')) ctx.fillStyle = "#CC0000"; // 深紅
-            else ctx.fillStyle = "#000"; // 黑色
-
-            drawVerticalText(ctx, cleanName, x + cw - 25 - (i * 20), y + 25, 15);
-        });
-    });
-
-    // 中央資訊
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 22px Arial";
-    let p = chart.person;
-    ctx.fillText(`${heavenNames[p.heaven]}${earthNames[p.earth]}年 ${p.month}月${p.day}日${p.hour}時生`, 290, 380);
-    ctx.fillText(`${chart.element}局`, 370, 420);
-}
-
+/**
+ * 條列輸出 (對應 Python list_chart)
+ */
 function listChart(chart) {
     const p = chart.person;
     let output = "";
-
     output += `${heavenNames[p.heaven]}${earthNames[p.earth]}年${p.month}月${p.day}日${earthNames[p.hour]}時生 ${chart.element}局\n`;
     output += `命宮 ${earthNames[chart.fate]} / 身宮 ${earthNames[chart.body]}\n---`;
     for (let i = 0; i < 12; i++) {
-        let stars = chart[i].star.map(s => s.replace(/^[0-9\s]*/, "")).join(" ");
+        let stars = chart[i].star.join(' ').replace(/\d /g, '');
         output += `\n${houseNames[chart[i].house]} ${earthNames[i]}: ${stars}`;
     }
-    return output
+    return output;
 }
 
 function execute() {
@@ -218,8 +265,9 @@ function execute() {
         day: parseInt(document.getElementById('day').value),
         hour: parseInt(document.getElementById('hour').value)
     };
-    chart = createChart(p);
-    renderChart(chart);
+
+    const chart = createChart(p);
+    drawCanvasChart(chart);
     document.getElementById('star_listing').innerText = listChart(chart);
 }
 
@@ -232,16 +280,17 @@ if (isNode) {
         process.exit(1);
     }
 
-    const p = {
+    const person = {
         heaven: parseInt(args[0]) % 10,
         earth: parseInt(args[1]) % 12,
         month: parseInt(args[2]) % 12,
         day: parseInt(args[3]),
-        hour: parseInt(args[4]) % 12
+        hour: parseInt(args[4]) % 12,
     };
 
-    const chart = createChart(p);
+    const chart = createChart(person);
     console.log(listChart(chart));
 } else {
-    init();
+    window.onload = initControls;
 }
+

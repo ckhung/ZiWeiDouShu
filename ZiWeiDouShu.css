@@ -9,7 +9,7 @@ body {
     border: 5px solid #ece;
 }
 
-.controls {
+#controls {
     background: white;
     padding: 15px;
     border-radius: 8px;
@@ -34,9 +34,10 @@ button {
 
 canvas {
     background:
+    font-size: 200;
     white; border: 2px solid #333;
-    max-width:
-    100%; height: auto;
+    max-width: 100%;
+    height: auto;
 }
 
 #star_listing {
