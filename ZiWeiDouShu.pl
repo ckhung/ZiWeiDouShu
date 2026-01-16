@@ -66,15 +66,19 @@ sub display_chart {
     vert_print($out, $ht*2+3, int($wd*1.5), "$chart->{element}局");
     for ($e=0; $e<12; ++$e) {
 	my ($r, $c) = ($pos->[$e][0]*$ht, $pos->[$e][1]*$wd);
-	vert_print($out, $r+$ht-2, $c+$wd-1,
+	vert_print($out, $r+1, $c+$wd-1,
 	    $heaven->[$chart->{$e}{heaven}] . $earth->[$e] );
-	vert_print($out, $r+$ht-2, $c+int($wd/2)+1,
+	vert_print($out, $r+1, $c+$wd-2,
 	    $house->[$chart->{$e}{house}] );
-	vert_print($out, $r+$ht-2, $c+int($wd/2), '身宮') if ($chart->{body} == $e);
-	for ($i=0; $i<=$#{ $chart->{$e}{star} }; ++$i) {
-	    $s = $chart->{$e}{star}[$i];
-	    $s =~ s/^[\w\s]*//;
-	    vert_print($out, $r+1, $c+$wd-$i-1, $s);
+	vert_print($out, $r+1, $c+$wd-3, '身宮') if ($chart->{body} == $e);
+	$i_major = $i_minor = 0;
+	foreach (@{ $chart->{$e}{star} }) {
+	    ($level, $name) = /(\d)\s+(.*)/;
+	    if ($level=='1') {
+		vert_print($out, $r+1, $c+ ++$i_major, $name);
+	    } else {
+		vert_print($out, $r+6, $c+ ++$i_minor, $name);
+	    }
 	}
     }
     for ($i=0; $i<=$ht*4; ++$i) {

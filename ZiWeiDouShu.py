@@ -65,17 +65,21 @@ def display_chart(chart):
 
     for e in range(12):
         r, c = pos[e][0] * ht, pos[e][1] * wd
-        vert_print(out, r + ht - 2, c + wd - 1, heaven[chart[e]['heaven']] + earth[e])
-        vert_print(out, r + ht - 2, c + int(wd / 2) + 1, house[chart[e]['house']])
+        vert_print(out, r + 1, c + wd - 1, heaven[chart[e]['heaven']] + earth[e])
+        vert_print(out, r + 1, c + wd - 2, house[chart[e]['house']])
         if chart['body'] == e:
-            vert_print(out, r + ht - 2, c + int(wd / 2), '身宮')
+            vert_print(out, r + 1, c + wd - 3, '身宮')
         
-        if 'star' in chart[e]:
-            for i in range(len(chart[e]['star'])):
-                s = chart[e]['star'][i]
-                # 去除前綴數字與空格 (s =~ s/^[\w\s]*//)
-                s = re.sub(r'^\d\s+', '', s)
-                vert_print(out, r + 1, c + wd - i - 1, s)
+        if not 'star' in chart[e]: continue
+        i_major = i_minor = 0
+        for st in chart[e]['star']:
+            (level, name) = st.split(' ')
+            if level=='1':
+                i_major += 1
+                vert_print(out, r + 1, c + i_major, name)
+            else:
+                i_minor += 1
+                vert_print(out, r + 6, c + i_minor, name)
 
     for i in range(ht * 4 + 1):
         print(''.join(out[i]))
