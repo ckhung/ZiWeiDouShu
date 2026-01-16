@@ -17,15 +17,12 @@ def vert_print(out, r, c, string):
             out[r + i][c] = s[i]
 
 def num2full(n):
-    FN = ['０', '１', '２', '３', '４', '５', '６', '７', '８', '９']
+    FN = '０１２３４５６７８９'
     r = ''
-    # 模仿 do-while 邏輯
-    temp_n = n
     while True:
-        r = FN[temp_n % 10] + r
-        temp_n = int(temp_n / 10)
-        if temp_n <= 0:
-            break
+        r = FN[n % 10] + r
+        n = int(n / 10)
+        if n <= 0: break
     return r
 
 def display_chart(chart):

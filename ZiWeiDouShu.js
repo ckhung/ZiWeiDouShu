@@ -7,6 +7,17 @@ const houseNames = ['命宮', '兄弟', '夫妻', '子女', '財帛', '疾厄', 
 // 輔助函式：確保取模運算在負數時也能正確運作
 const fixMod = (n, m) => ((n % m) + m) % m;
 
+function num2full(n) {
+    const FN = '０１２３４５６７８９';
+    let r = '';
+    while (true) {
+        r = FN[n % 10] + r;
+        n = Math.floor(n / 10);
+        if (n <= 0) break;
+    }
+    return r;
+}
+
 function drawCanvasChart(chart) {
     const canvas = document.getElementById('ziweiCanvas');
     if (!canvas) return;
@@ -20,34 +31,27 @@ function drawCanvasChart(chart) {
 
     const baseSize = 20;
 
-    // 清除畫布並設定基本樣式
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    /* ctx.clearRect(0, 0, canvas.width, canvas.height); */
     ctx.strokeStyle = "#333";
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#000";
 
     ctx.beginPath();
-    for (let i = 0; i <= 4; i++) {
-        if (i === 2) {
-            ctx.moveTo(0, i * ch); ctx.lineTo(cw, i * ch);
-            ctx.moveTo(3 * cw, i * ch); ctx.lineTo(4 * cw, i * ch);
-        } else {
-            ctx.moveTo(0, i * ch); ctx.lineTo(canvas.width, i * ch);
-        }
-        if (i === 2) {
-            ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, ch);
-            ctx.moveTo(i * cw, 3 * ch); ctx.lineTo(i * cw, 4 * ch);
-        } else {
-            ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, canvas.height);
-        }
-    }
+    [1, 3].forEach(function(i) {
+	ctx.moveTo(0, i * ch); ctx.lineTo(canvas.width, i * ch);
+	ctx.moveTo(i * cw, 0); ctx.lineTo(i * cw, canvas.height);
+    })
+    ctx.moveTo(0, 2 * ch); ctx.lineTo(cw, 2 * ch);
+    ctx.moveTo(3 * cw, 2 * ch); ctx.lineTo(4 * cw, 2 * ch);
+    ctx.moveTo(2 * cw, 0); ctx.lineTo(2 * cw, ch);
+    ctx.moveTo(2 * cw, 3 * ch); ctx.lineTo(2 * cw, 4 * ch);
     ctx.stroke();
 
 
     // 填入中央出生資訊
     const p = chart.person;
-    const info = `${heavenNames[p.heaven]}${earthNames[p.earth]}年${p.month}月${p.day}日${earthNames[p.hour]}時生`;
+    const info = `${heavenNames[p.heaven]}${earthNames[p.earth]}年` + num2full(p.month) + `月` + num2full(p.day) + `日${earthNames[p.hour]}時生`;
     ctx.save();
     ctx.fillStyle = "#000";
     drawVertText(ctx, info, cw * 3 - 50, ch + 40, baseSize * 1.2);
@@ -75,13 +79,13 @@ function drawCanvasChart(chart) {
             chart[e].star.forEach(st => {
                 const [level, name] = st.split(' ');
                 if (level === '1') {
-                    iMajor++;
-                    ctx.fillStyle = "#0000FF"; // 主星藍色
+                    ctx.fillStyle = "#00F"; // 主星藍色
                     drawVertText(ctx, name, x + iMajor * baseSize * 1.2, y + 20, baseSize);
+                    iMajor++;
                 } else {
+                    ctx.fillStyle = "#000";
+                    drawVertText(ctx, name, x + iMinor * baseSize * 1.1, y + ch - baseSize*2, baseSize * 0.9);
                     iMinor++;
-                    ctx.fillStyle = (level === '2') ? "#CC0000" : "#000";
-                    drawVertText(ctx, name, x + iMinor * baseSize * 1.1, y + ch - 80, baseSize * 0.9);
                 }
             });
         }
@@ -92,7 +96,7 @@ function drawCanvasChart(chart) {
 function drawVertText(ctx, text, x, y, size) {
     ctx.font = `bold ${size}px 楷書`;
     for (let i = 0; i < text.length; i++) {
-        ctx.fillText(text[i], x, y + (i * (size + 4)));
+        ctx.fillText(text[i], x+3, y+3 + (i * (size + 4)));
     }
 }
 
